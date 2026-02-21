@@ -1126,27 +1126,32 @@ app.post("/chapters/byIds", async (req, res) => {
 app.put("/api/users/:uid/last-notified", async (req, res) => {
   try {
     const { uid } = req.params;
-    let { lastNotified } = req.body;
 
-    const timestamp = lastNotified ? new Date(lastNotified) : new Date();
-    if (Number.isNaN(timestamp.getTime())) {
-      return res.status(400).json({ message: "Invalid 'lastNotified' date" });
+    // ✅ Use authoritative server time (ignore client body)
+    const userRef = usersCol.doc(uid);
+    const snap = await userRef.get();
+    if (!snap.exists) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    const ref = usersCol.doc(uid);
-    const snap = await ref.get();
-    if (!snap.exists)
-      return res.status(404).json({ message: "User not found" });
-
-    await ref.update({
-      lastNotified: admin.firestore.Timestamp.fromDate(timestamp),
+    // Write server timestamp; prevents client clock drift issues
+    await userRef.update({
+      lastNotified: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const updated = await ref.get();
-    return res.json({
+    // Read back the updated doc
+    const updated = await userRef.get();
+    const data = updated.data() || {};
+    // Convert Firestore Timestamp -> ISO string for the frontend
+    const iso =
+      data.lastNotified && typeof data.lastNotified.toDate === "function"
+        ? data.lastNotified.toDate().toISOString()
+        : null;
+
+    return res.status(200).json({
       message: "lastNotified updated",
       uid: updated.id,
-      lastNotified: updated.data().lastNotified,
+      lastNotified: iso, // ✅ frontend-friendly
     });
   } catch (err) {
     console.error("Update lastNotified error:", err);
