@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: firebase-express-server
+    runtime: node
+    plan: free # or starter/standard to prevent auto-sleep
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FIREBASE_STORAGE_BUCKET
+        value: your-project-id.appspot.com
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false # set in dashboard
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    healthCheckPath: "/health"
+    autoDeploy: true
