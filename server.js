@@ -797,36 +797,17 @@ app.put(
 
 // Public: read from /public_notes (orderBy only)
 // Validated: read from /notes (orderBy only)
+// Fetch ALL notes (admin-style)
 app.get("/api/notes", async (req, res) => {
   try {
-    const { uid } = req.query;
+    const snap = await notesCol.get();
 
-    let isValidated = false;
-
-    if (uid && typeof uid === "string") {
-      const userSnap = await usersCol.doc(uid).get();
-      isValidated = !!userSnap.data()?.is_validated;
-    }
-
-    let snap;
-
-    // VALIDATED USERS → fetch all notes
-    if (isValidated) {
-      snap = await notesCol.get();
-    }
-
-    // PUBLIC USERS → fetch only isPublic notes
-    else {
-      snap = await notesCol.where("isPublic", "==", true).get();
-    }
-
-    // Sort manually by createdAt (DESC)
     const notes = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .sort((a, b) => {
         const ta = a.createdAt?.toMillis?.() ?? 0;
         const tb = b.createdAt?.toMillis?.() ?? 0;
-        return tb - ta;
+        return tb - ta; // newest first
       });
 
     return res.json(notes);
