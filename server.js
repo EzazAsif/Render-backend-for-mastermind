@@ -26,13 +26,25 @@ function initFirebaseAdmin() {
   let credential;
 
   if (svcFromEnv) {
-    const serviceAccount = JSON.parse(svcFromEnv);
-    if (serviceAccount.private_key?.includes("\\n")) {
-      serviceAccount.private_key = serviceAccount.private_key.replace(
-        /\\n/g,
-        "\n",
-      );
+    let raw = svcFromEnv.trim();
+
+    // Remove wrapping quotes if platform added them
+    if (
+      (raw.startsWith('"') && raw.endsWith('"')) ||
+      (raw.startsWith("'") && raw.endsWith("'"))
+    ) {
+      raw = raw.slice(1, -1);
     }
+
+    const serviceAccount = JSON.parse(raw);
+
+    if (typeof serviceAccount.private_key === "string") {
+      serviceAccount.private_key = serviceAccount.private_key
+        .replace(/\\n/g, "\n") // convert literal \n to real newlines
+        .replace(/^"|"$/g, "") // remove accidental wrapping quotes
+        .replace(/^'|'$/g, "");
+    }
+
     credential = admin.credential.cert(serviceAccount);
   } else if (svcFromPath) {
     const raw = fs.readFileSync(svcFromPath, "utf8");
