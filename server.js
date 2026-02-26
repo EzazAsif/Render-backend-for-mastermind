@@ -26,9 +26,9 @@ function initFirebaseAdmin() {
   let credential;
 
   if (svcFromEnv) {
-    let raw = svcFromEnv.trim();
+    let raw = String(svcFromEnv).trim();
 
-    // Remove wrapping quotes if platform added them
+    // Some platforms wrap the entire JSON in single/double quotes
     if (
       (raw.startsWith('"') && raw.endsWith('"')) ||
       (raw.startsWith("'") && raw.endsWith("'"))
@@ -36,14 +36,51 @@ function initFirebaseAdmin() {
       raw = raw.slice(1, -1);
     }
 
-    const serviceAccount = JSON.parse(raw);
-
-    if (typeof serviceAccount.private_key === "string") {
-      serviceAccount.private_key = serviceAccount.private_key
-        .replace(/\\n/g, "\n") // convert literal \n to real newlines
-        .replace(/^"|"$/g, "") // remove accidental wrapping quotes
-        .replace(/^'|'$/g, "");
+    // If the env value is a JSON string that contains escaped JSON (double-encoded),
+    // try to decode once.
+    // Example: "{\"type\":\"service_account\",...}"
+    if (raw.startsWith("{\\") || raw.includes('\\"type\\"')) {
+      try {
+        raw = JSON.parse(raw); // becomes real JSON text
+      } catch {
+        // ignore
+      }
     }
+
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(raw);
+    } catch (e) {
+      console.error("[BOOT] FIREBASE_SERVICE_ACCOUNT is not valid JSON.");
+      console.error("[BOOT] First 120 chars:", raw.slice(0, 120));
+      throw e;
+    }
+
+    // Normalize private_key aggressively
+    let pk = String(serviceAccount.private_key || "");
+
+    // Remove wrapping quotes around the key itself
+    pk = pk.replace(/^"|"$/g, "").replace(/^'|'$/g, "");
+
+    // Convert literal \n sequences to real newlines
+    pk = pk.replace(/\\n/g, "\n");
+
+    // Trim but keep the internal newlines
+    pk = pk.trim() + "\n";
+
+    serviceAccount.private_key = pk;
+
+    // ---- SAFE DEBUG (doesn't leak the key) ----
+    console.log("[BOOT] SA keys:", {
+      hasClientEmail: !!serviceAccount.client_email,
+      hasProjectId: !!serviceAccount.project_id,
+      pkStartsOk: pk.startsWith("-----BEGIN PRIVATE KEY-----"),
+      pkEndsOk: pk.includes("-----END PRIVATE KEY-----"),
+      pkHasNewlines: pk.includes("\n"),
+      pkLength: pk.length,
+      pkFirst20: pk.slice(0, 20),
+      pkLast20: pk.slice(-20),
+    });
 
     credential = admin.credential.cert(serviceAccount);
   } else if (svcFromPath) {
