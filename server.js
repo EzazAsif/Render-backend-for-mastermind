@@ -324,12 +324,16 @@ app.put("/api/users/:uid/score", async (req, res) => {
 app.put("/api/users/:uid", async (req, res) => {
   try {
     const { uid } = req.params;
-    const { Board, ExamYEar, is_Admin } = req.body;
+    const { Board, ExamYEar, is_Admin, phone } = req.body;
 
     const update = {};
+
+    // Board
     if (typeof Board === "string") {
       update.Board = Board.trim() || "none";
     }
+
+    // Exam year
     if (typeof ExamYEar !== "undefined") {
       const yearNum = Number(ExamYEar) || 0;
       const currentYear = new Date().getFullYear();
@@ -340,6 +344,32 @@ app.put("/api/users/:uid", async (req, res) => {
       }
       update.ExamYEar = yearNum;
     }
+
+    // Phone (NEW)
+    if (typeof phone === "string") {
+      // keep only digits and +
+      let p = phone.trim().replace(/[^\d+]/g, "");
+
+      // normalize common BD formats:
+      // 01XXXXXXXXX (11 digits) OR +8801XXXXXXXXX
+      if (p.startsWith("8801") && !p.startsWith("+")) p = "+" + p;
+      if (p.startsWith("01")) p = "+88" + p;
+
+      // validate: +8801 followed by 9 digits OR allow "none"
+      if (p && p !== "none") {
+        const ok = /^\+8801\d{9}$/.test(p);
+        if (!ok) {
+          return res.status(400).json({
+            message:
+              "Invalid phone. Use 01XXXXXXXXX or +8801XXXXXXXXX (Bangladesh format).",
+          });
+        }
+      }
+
+      update.phone = p || "none";
+    }
+
+    // Admin flag
     if (typeof is_Admin === "boolean") {
       update.is_Admin = is_Admin;
     }
@@ -348,6 +378,28 @@ app.put("/api/users/:uid", async (req, res) => {
     const snap = await ref.get();
     if (!snap.exists)
       return res.status(404).json({ message: "User not found" });
+
+    // --- NEW: auto-validation based on final values (existing + incoming) ---
+    const existing = snap.data() || {};
+    const nextBoard =
+      (typeof update.Board !== "undefined" ? update.Board : existing.Board) ||
+      "none";
+    const nextYear =
+      (typeof update.ExamYEar !== "undefined"
+        ? update.ExamYEar
+        : existing.ExamYEar) || 0;
+    const nextPhone =
+      (typeof update.phone !== "undefined" ? update.phone : existing.phone) ||
+      "none";
+
+    const isComplete =
+      String(nextBoard).trim() !== "" &&
+      String(nextBoard).trim().toLowerCase() !== "none" &&
+      Number(nextYear) > 0 &&
+      String(nextPhone).trim() !== "" &&
+      String(nextPhone).trim().toLowerCase() !== "none";
+
+    update.is_validated = isComplete;
 
     await ref.update(update);
     const updated = await ref.get();
