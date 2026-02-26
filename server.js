@@ -399,8 +399,6 @@ app.put("/api/users/:uid", async (req, res) => {
       String(nextPhone).trim() !== "" &&
       String(nextPhone).trim().toLowerCase() !== "none";
 
-    update.is_validated = isComplete;
-
     await ref.update(update);
     const updated = await ref.get();
     res.json({ id: updated.id, ...updated.data() });
