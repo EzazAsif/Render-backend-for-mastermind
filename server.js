@@ -369,11 +369,6 @@ app.put("/api/users/:uid", async (req, res) => {
       update.phone = p || "none";
     }
 
-    // Admin flag
-    if (typeof is_Admin === "boolean") {
-      update.is_Admin = is_Admin;
-    }
-
     const ref = usersCol.doc(uid);
     const snap = await ref.get();
     if (!snap.exists)
