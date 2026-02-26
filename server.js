@@ -21,43 +21,43 @@ app.use(express.json());
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
 
-  const svcFromEnv = process.env.FIREBASE_SERVICE_ACCOUNT; // JSON string
-  const svcFromPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH; // path to JSON
-  let credential;
+  // Fix B: use 3 env vars instead of FIREBASE_SERVICE_ACCOUNT JSON
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
 
-if (svcFromEnv) {
-  let raw = svcFromEnv.trim();
-
-  // Remove wrapping quotes if platform added them
-  if (
-    (raw.startsWith('"') && raw.endsWith('"')) ||
-    (raw.startsWith("'") && raw.endsWith("'"))
-  ) {
-    raw = raw.slice(1, -1);
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error(
+      "Missing Firebase env vars. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.",
+    );
+  }
+  if (!storageBucket) {
+    throw new Error(
+      "No default storage bucket. Set FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com",
+    );
   }
 
-  const serviceAccount = JSON.parse(raw);
+  // Normalize key (env var usually contains \n)
+  const pk =
+    String(privateKey)
+      .replace(/\\n/g, "\n")
+      .replace(/^"|"$/g, "") // in case dashboard added quotes
+      .trim() + "\n";
 
-  if (typeof serviceAccount.private_key === "string") {
-    serviceAccount.private_key = serviceAccount.private_key
-      .replace(/\\n/g, "\n")     // convert literal \n to real newlines
-      .replace(/^"|"$/g, "")     // remove accidental wrapping quotes
-      .replace(/^'|'$/g, "");
-  }
-
-credential = admin.credential.cert({
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: (process.env.FIREBASE_PRIVATE_KEY || "")
-    .replace(/\\n/g, "\n")
-    .trim() + "\n",
-});
+  console.log("[BOOT] Private key length:", pk.length);
 
   admin.initializeApp({
-    credential,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    credential: admin.credential.cert({
+      projectId,
+      clientEmail,
+      privateKey: pk,
+    }),
+    storageBucket,
   });
 }
+
+initFirebaseAdmin();
 initFirebaseAdmin();
 
 const db = admin.firestore();
