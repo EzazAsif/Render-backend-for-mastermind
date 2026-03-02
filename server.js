@@ -1076,7 +1076,7 @@ app.post("/api/announcements/", async (req, res) => {
       defaults.announcement({
         title,
         content,
-        createdAt: FieldValue.serverTimestamp(), // ✅ current server time
+        createdAt: new Date(), // ✅ current server time
       }),
     );
 
