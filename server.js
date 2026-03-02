@@ -1065,6 +1065,7 @@ app.put("/api/requests/reject/:id", async (req, res) => {
 app.post("/api/announcements/", async (req, res) => {
   try {
     const { title, content } = req.body;
+
     if (!title || !content) {
       return res
         .status(400)
@@ -1075,9 +1076,12 @@ app.post("/api/announcements/", async (req, res) => {
       defaults.announcement({
         title,
         content,
+        createdAt: FieldValue.serverTimestamp(), // ✅ current server time
       }),
     );
+
     const snap = await doc.get();
+
     res.status(201).json({ id: snap.id, ...snap.data() });
   } catch (err) {
     res.status(500).json({ error: err.message });
