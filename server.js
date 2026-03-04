@@ -1072,7 +1072,7 @@ app.post("/api/announcements/", async (req, res) => {
         .json({ message: "Title and content are required" });
     }
 
-    const dhakaTime = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    const dhakaTime = new Date(Date.now());
 
     const doc = await announcementsCol.add(
       defaults.announcement({
