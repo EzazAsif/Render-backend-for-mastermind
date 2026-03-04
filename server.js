@@ -1065,6 +1065,9 @@ app.put("/api/requests/reject/:id", async (req, res) => {
 app.post("/api/announcements/", async (req, res) => {
   try {
     const { title, content } = req.body;
+    const dhakaTime = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka" }),
+    );
 
     if (!title || !content) {
       return res
@@ -1076,7 +1079,7 @@ app.post("/api/announcements/", async (req, res) => {
       defaults.announcement({
         title,
         content,
-        createdAt: new Date(), // ✅ current server time
+        createdAt: dhakaTime, // ✅ current server time in Dhaka timezone
       }),
     );
 
